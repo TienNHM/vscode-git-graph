@@ -1,5 +1,11 @@
 # Change Log
 
+## 1.31.0 - 2026-10-26
+* Renamed the extension to GitPilot (new extension ID, command and setting prefix `gitpilot.*`) and a new icon.
+* New "Interactive Cherry Pick..." action on the Commit Context Menu: tick and reorder multiple commits to cherry pick, with a Continue / Skip / Abort dialog when a conflict stops the cherry pick.
+* The default value of `gitpilot.maxDepthOfRepoSearch` is now 3.
+* Removed the install/update/uninstall telemetry requests sent to the original author's server.
+
 ## 1.30.0 - 2021-04-05
 * #395 Added a "Force Fetch" option onto the "Fetch into Local Branch" Dialog, allowing any local branch (that's not checked out) to be reset to the remote branch. This dialog is accessed via the Remote Branch Context Menu.
 * #457 New "View Diff with Working File" action on the File Context Menu in the Commit Details View.
