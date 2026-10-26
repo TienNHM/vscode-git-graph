@@ -13,7 +13,8 @@ const enum DialogInputType {
 	TextRef,
 	Select,
 	Radio,
-	Checkbox
+	Checkbox,
+	OrderedList
 }
 
 interface DialogTextInput {
@@ -54,6 +55,18 @@ interface DialogRadioInput {
 	readonly default: string;
 }
 
+interface DialogOrderedListInput {
+	readonly type: DialogInputType.OrderedList;
+	readonly name: string;
+	readonly items: ReadonlyArray<DialogOrderedListItem>;
+}
+
+interface DialogOrderedListItem {
+	readonly name: string;
+	readonly value: string;
+	readonly checked: boolean;
+}
+
 interface DialogCheckboxInput {
 	readonly type: DialogInputType.Checkbox;
 	readonly name: string;
@@ -71,7 +84,7 @@ interface DialogRadioInputOption {
 	readonly value: string;
 }
 
-type DialogInput = DialogTextInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
+type DialogInput = DialogTextInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput | DialogOrderedListInput;
 type DialogInputValue = string | string[] | boolean;
 
 type DialogTarget = {
@@ -199,10 +212,14 @@ class Dialog {
 	public showForm(message: string, inputs: ReadonlyArray<DialogInput>, actionName: string, actioned: (values: DialogInputValue[]) => void, target: DialogTarget | null, secondaryActionName: string = 'Cancel', secondaryActioned: ((values: DialogInputValue[]) => void) | null = null, includeLineBreak: boolean = true) {
 		const multiElement = inputs.length > 1;
 		const multiCheckbox = multiElement && inputs.every((input) => input.type === DialogInputType.Checkbox);
-		const infoColRequired = inputs.some((input) => input.type !== DialogInputType.Checkbox && input.type !== DialogInputType.Radio && input.info);
+		const infoColRequired = inputs.some((input) => input.type !== DialogInputType.Checkbox && input.type !== DialogInputType.Radio && input.type !== DialogInputType.OrderedList && input.info);
 		const inputRowsHtml = inputs.map((input, id) => {
 			let inputHtml;
-			if (input.type === DialogInputType.Radio) {
+			if (input.type === DialogInputType.OrderedList) {
+				inputHtml = '<td class="inputCol" colspan="' + (infoColRequired ? 3 : 2) + '"><div id="dialogOrderedList' + id + '" class="dialogOrderedList">' +
+					input.items.map((item) => '<div class="dialogOrderedListItem" data-value="' + escapeHtml(item.value) + '"><span class="dialogFormCheckbox"><label title="' + escapeHtml(item.name) + '"><input type="checkbox"' + (item.checked ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span><span class="dialogOrderedListName">' + escapeHtml(item.name) + '</span></label></span><span class="dialogOrderedListMove" data-move="-1" title="Move up">&#9650;</span><span class="dialogOrderedListMove" data-move="1" title="Move down">&#9660;</span></div>').join('') +
+					'</div></td>';
+			} else if (input.type === DialogInputType.Radio) {
 				inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormRadio">' +
 					input.options.map((option, optionId) => '<label><input type="radio" name="dialogInput' + id + '" value="' + optionId + '"' + (option.value === input.default ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customRadio"></span>' + escapeHtml(option.name) + '</label>').join('<br>') +
 					'</span></td>';
@@ -216,7 +233,7 @@ class Dialog {
 					inputHtml = '<td class="inputCol"><input id="dialogInput' + id + '" type="text" value="' + escapeHtml(input.default) + '"' + (input.type === DialogInputType.Text && input.placeholder !== null ? ' placeholder="' + escapeHtml(input.placeholder) + '"' : '') + ' tabindex="' + (id + 1) + '"/></td>' + (infoColRequired ? '<td>' + infoHtml + '</td>' : '');
 				}
 			}
-			return '<tr' + (input.type === DialogInputType.Radio ? ' class="mediumField"' : input.type !== DialogInputType.Checkbox ? ' class="largeField"' : '') + '>' + (multiElement && !multiCheckbox ? '<td>' + input.name + ': </td>' : '') + inputHtml + '</tr>';
+			return '<tr' + (input.type === DialogInputType.Radio ? ' class="mediumField"' : input.type !== DialogInputType.Checkbox && input.type !== DialogInputType.OrderedList ? ' class="largeField"' : '') + '>' + (multiElement && !multiCheckbox && input.type !== DialogInputType.OrderedList ? '<td>' + input.name + ': </td>' : '') + inputHtml + '</tr>';
 		});
 
 		const html = message + (includeLineBreak ? '<br>' : '') +
@@ -235,6 +252,16 @@ class Dialog {
 					}
 				}
 				return input.default; // If no option is checked, return the default value
+			} else if (input.type === DialogInputType.OrderedList) {
+				// Return the values of the checked items, in the order they are currently displayed
+				const values: string[] = [];
+				const itemElems = <HTMLCollectionOf<HTMLElement>>document.getElementById('dialogOrderedList' + index)!.children;
+				for (let i = 0; i < itemElems.length; i++) {
+					if ((<HTMLInputElement>itemElems[i].querySelector('input[type=checkbox]')).checked) {
+						values.push(itemElems[i].dataset.value!);
+					}
+				}
+				return values;
 			} else if (input.type === DialogInputType.Select) {
 				return this.customSelects[index.toString()].getValue();
 			} else {
@@ -257,10 +284,22 @@ class Dialog {
 			secondaryActioned(values);
 		} : null, target);
 
-		// Create custom select inputs
+		// Create custom select inputs, and attach the reordering event listeners to ordered list inputs
 		inputs.forEach((input, index) => {
 			if (input.type === DialogInputType.Select) {
 				this.customSelects[index.toString()] = new CustomSelect(input, 'dialogFormSelect' + index, index + 1, this.elem!);
+			} else if (input.type === DialogInputType.OrderedList) {
+				const listElem = document.getElementById('dialogOrderedList' + index)!;
+				listElem.addEventListener('click', (e) => {
+					const moveElem = (<HTMLElement>e.target).closest('.dialogOrderedListMove');
+					if (moveElem === null) return;
+					const itemElem = <HTMLElement>moveElem.parentElement;
+					if ((<HTMLElement>moveElem).dataset.move === '-1') {
+						if (itemElem.previousElementSibling !== null) listElem.insertBefore(itemElem, itemElem.previousElementSibling);
+					} else if (itemElem.nextElementSibling !== null) {
+						listElem.insertBefore(itemElem.nextElementSibling, itemElem);
+					}
+				});
 			}
 		});
 

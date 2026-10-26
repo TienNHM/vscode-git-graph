@@ -6,11 +6,12 @@ import * as vscode from 'vscode';
 import { AskpassEnvironment, AskpassManager } from './askpass/askpassManager';
 import { getConfig } from './config';
 import { Logger } from './logger';
-import { CommitOrdering, DateType, DeepWriteable, ErrorInfo, ErrorInfoExtensionPrefix, GitCommit, GitCommitDetails, GitCommitStash, GitConfigLocation, GitFileChange, GitFileStatus, GitPushBranchMode, GitRepoConfig, GitRepoConfigBranches, GitResetMode, GitSignature, GitSignatureStatus, GitStash, GitTagDetails, MergeActionOn, RebaseActionOn, SquashMessageFormat, TagType, Writeable } from './types';
+import { CherrypickControlAction, CommitOrdering, DateType, DeepWriteable, ErrorInfo, ErrorInfoExtensionPrefix, GitCherrypickCandidate, GitCommit, GitCommitDetails, GitCommitStash, GitConfigLocation, GitFileChange, GitFileStatus, GitPushBranchMode, GitRepoConfig, GitRepoConfigBranches, GitResetMode, GitSignature, GitSignatureStatus, GitStash, GitTagDetails, MergeActionOn, RebaseActionOn, SquashMessageFormat, TagType, Writeable } from './types';
 import { GitExecutable, GitVersionRequirement, UNABLE_TO_FIND_GIT_MSG, UNCOMMITTED, abbrevCommit, constructIncompatibleGitVersionMessage, doesVersionMeetRequirement, getPathFromStr, getPathFromUri, openGitTerminal, pathWithTrailingSlash, realpath, resolveSpawnOutput, showErrorMessage } from './utils';
 import { Disposable } from './utils/disposable';
 import { Event } from './utils/event';
 
+const CHERRYPICK_CANDIDATES_LIMIT = 100;
 const DRIVE_LETTER_PATH_REGEX = /^[a-z]:\//;
 const EOL_REGEX = /\r\n|\r|\n/g;
 const INVALID_BRANCH_REGEXP = /^\(.* .*\)$/;
@@ -1075,6 +1076,61 @@ export class DataSource extends Disposable {
 		}
 		args.push(commitHash);
 		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Get the commits that can be cherry picked from a commit onto the checked out commit (i.e. `HEAD..commitHash`), and whether a cherry pick is already in progress.
+	 * @param repo The path of the repository.
+	 * @param commitHash The commit to cherry pick from.
+	 * @returns The candidate commits (ordered oldest to newest, merge commits excluded), and whether a cherry pick is in progress.
+	 */
+	public async getCherrypickCandidates(repo: string, commitHash: string): Promise<{ inProgress: boolean, commits: GitCherrypickCandidate[], error: ErrorInfo }> {
+		const inProgress = await this._spawnGit(['rev-parse', '-q', '--verify', 'CHERRY_PICK_HEAD'], repo, () => true).catch(() => false);
+		if (inProgress) {
+			return { inProgress: true, commits: [], error: null };
+		}
+		return this.spawnGit(['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=' + CHERRYPICK_CANDIDATES_LIMIT, '--format=%H%x00%s', 'HEAD..' + commitHash, '--'], repo, (stdout) => {
+			return stdout.split(EOL_REGEX).filter((line) => line !== '').map((line) => {
+				const parts = line.split('\0');
+				return { hash: parts[0], message: parts.slice(1).join('\0') };
+			});
+		}).then(
+			(commits) => ({ inProgress: false, commits: commits, error: null }),
+			(error: string) => ({ inProgress: false, commits: [], error: error })
+		);
+	}
+
+	/**
+	 * Cherrypick multiple commits (in the order provided) in a repository.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The hashes of the commits to be cherry picked (ordered oldest to newest).
+	 * @param recordOrigin Is `-x` enabled.
+	 * @param noCommit Is `--no-commit` enabled.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public cherrypickCommits(repo: string, commitHashes: string[], recordOrigin: boolean, noCommit: boolean) {
+		const args = ['cherry-pick'];
+		if (noCommit) {
+			args.push('--no-commit');
+		}
+		if (recordOrigin) {
+			args.push('-x');
+		}
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		args.push(...commitHashes);
+		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Continue, skip or abort a cherry pick that is in progress.
+	 * @param repo The path of the repository.
+	 * @param action The action to take.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public cherrypickControl(repo: string, action: CherrypickControlAction) {
+		return this.runGitCommand(['-c', 'core.editor=true', 'cherry-pick', '--' + action], repo);
 	}
 
 	/**

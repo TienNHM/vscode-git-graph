@@ -670,6 +670,49 @@ export interface ResponseCherrypickCommit extends ResponseWithMultiErrorInfo {
 	readonly command: 'cherrypickCommit';
 }
 
+export interface RequestCherrypickCandidates extends RepoRequest {
+	readonly command: 'cherrypickCandidates';
+	readonly commitHash: string;
+}
+export interface ResponseCherrypickCandidates extends ResponseWithErrorInfo {
+	readonly command: 'cherrypickCandidates';
+	readonly repo: string;
+	readonly inProgress: boolean;
+	readonly commits: GitCherrypickCandidate[]; // Ordered oldest to newest
+}
+
+export interface GitCherrypickCandidate {
+	readonly hash: string;
+	readonly message: string;
+}
+
+export interface RequestCherrypickCommits extends RepoRequest {
+	readonly command: 'cherrypickCommits';
+	readonly commitHashes: string[]; // In the order they should be applied
+	readonly recordOrigin: boolean;
+	readonly noCommit: boolean;
+}
+export interface ResponseCherrypickCommits extends ResponseWithMultiErrorInfo {
+	readonly command: 'cherrypickCommits';
+	readonly repo: string;
+}
+
+export const enum CherrypickControlAction {
+	Continue = 'continue',
+	Skip = 'skip',
+	Abort = 'abort'
+}
+
+export interface RequestCherrypickControl extends RepoRequest {
+	readonly command: 'cherrypickControl';
+	readonly action: CherrypickControlAction;
+}
+export interface ResponseCherrypickControl extends ResponseWithErrorInfo {
+	readonly command: 'cherrypickControl';
+	readonly repo: string;
+	readonly action: CherrypickControlAction;
+}
+
 export interface RequestCleanUntrackedFiles extends RepoRequest {
 	readonly command: 'cleanUntrackedFiles';
 	readonly directories: boolean;
@@ -1254,7 +1297,10 @@ export type RequestMessage =
 	| RequestBranchFromStash
 	| RequestCheckoutBranch
 	| RequestCheckoutCommit
+	| RequestCherrypickCandidates
 	| RequestCherrypickCommit
+	| RequestCherrypickCommits
+	| RequestCherrypickControl
 	| RequestCleanUntrackedFiles
 	| RequestCommitDetails
 	| RequestCompareCommits
@@ -1318,7 +1364,10 @@ export type ResponseMessage =
 	| ResponseBranchFromStash
 	| ResponseCheckoutBranch
 	| ResponseCheckoutCommit
+	| ResponseCherrypickCandidates
 	| ResponseCherrypickCommit
+	| ResponseCherrypickCommits
+	| ResponseCherrypickControl
 	| ResponseCleanUntrackedFiles
 	| ResponseCompareCommits
 	| ResponseCommitDetails

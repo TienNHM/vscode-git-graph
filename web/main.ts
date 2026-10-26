@@ -1170,6 +1170,12 @@ class GitGraphView {
 					}, target);
 				}
 			}, {
+				title: 'Interactive Cherry Pick' + ELLIPSIS,
+				visible: visibility.cherrypick,
+				onClick: () => {
+					runAction({ command: 'cherrypickCandidates', repo: this.currentRepo, commitHash: hash }, 'Loading Commits to Cherry Pick');
+				}
+			}, {
 				title: 'Revert' + ELLIPSIS,
 				visible: visibility.revert,
 				onClick: () => {
@@ -3215,8 +3221,27 @@ window.addEventListener('load', () => {
 			case 'checkoutCommit':
 				refreshOrDisplayError(msg.error, 'Unable to Checkout Commit');
 				break;
+			case 'cherrypickCandidates':
+				if (msg.error !== null) {
+					dialog.showError('Unable to Load Commits to Cherry Pick', msg.error, null, null);
+				} else if (msg.inProgress) {
+					showCherrypickControlDialog(msg.repo, 'A cherry pick is already in progress. Resolve any conflicts in your editor and stage the changes, then choose how to proceed:');
+				} else if (msg.commits.length === 0) {
+					dialog.showMessage('There are no commits to cherry pick. All commits reachable from the selected commit are already in the checked out branch.');
+				} else {
+					showInteractiveCherrypickDialog(msg.repo, msg.commits);
+				}
+				break;
 			case 'cherrypickCommit':
 				refreshAndDisplayErrors(msg.errors, 'Unable to Cherry Pick Commit');
+				break;
+			case 'cherrypickCommits':
+				handleCherrypickError(msg.repo, reduceErrorInfos(msg.errors).error, 'Unable to Cherry Pick Commits');
+				gitGraph.refresh(false);
+				break;
+			case 'cherrypickControl':
+				handleCherrypickError(msg.repo, msg.error, 'Unable to ' + (msg.action === GG.CherrypickControlAction.Continue ? 'Continue' : msg.action === GG.CherrypickControlAction.Skip ? 'Skip' : 'Abort') + ' Cherry Pick');
+				gitGraph.refresh(false);
 				break;
 			case 'cleanUntrackedFiles':
 				refreshOrDisplayError(msg.error, 'Unable to Clean Untracked Files');
@@ -3910,6 +3935,60 @@ function getRepoDropdownOptions(repos: Readonly<GG.GitRepoSet>) {
 function runAction(msg: GG.RequestMessage, action: string) {
 	dialog.showActionRunning(action);
 	sendMessage(msg);
+}
+
+function showInteractiveCherrypickDialog(repo: string, commits: ReadonlyArray<GG.GitCherrypickCandidate>) {
+	const options = commits.map((commit) => ({ name: abbrevCommit(commit.hash) + ': ' + commit.message, value: commit.hash }));
+	dialog.showForm('Tick the commits to cherry pick onto the checked out branch. They are applied from top to bottom, use the arrows to change the order.', [{
+		type: DialogInputType.OrderedList,
+		name: 'Commits',
+		items: options.map((option) => ({ name: option.name, value: option.value, checked: true }))
+	}, {
+		type: DialogInputType.Checkbox,
+		name: 'Record Origin',
+		value: initialState.config.dialogDefaults.cherryPick.recordOrigin,
+		info: 'Record that each commit was the origin of the cherry pick by appending a line to the original commit message that states "(cherry picked from commit ...​)".'
+	}, {
+		type: DialogInputType.Checkbox,
+		name: 'No Commit',
+		value: initialState.config.dialogDefaults.cherryPick.noCommit,
+		info: 'Cherry picked changes will be staged but not committed, so that you can select and commit specific parts of the commits.'
+	}], 'Cherry pick', (values) => {
+		const selected = <string[]>values[0];
+		if (selected.length === 0) return;
+		runAction({
+			command: 'cherrypickCommits',
+			repo: repo,
+			commitHashes: selected,
+			recordOrigin: <boolean>values[1],
+			noCommit: <boolean>values[2]
+		}, 'Cherry picking Commits');
+	}, null);
+}
+
+function showCherrypickControlDialog(repo: string, message: string) {
+	dialog.showForm(message, [{
+		type: DialogInputType.Radio,
+		name: 'Action',
+		options: [
+			{ name: 'Continue (after resolving conflicts and staging the changes)', value: GG.CherrypickControlAction.Continue },
+			{ name: 'Skip this commit', value: GG.CherrypickControlAction.Skip },
+			{ name: 'Abort the cherry pick', value: GG.CherrypickControlAction.Abort }
+		],
+		default: GG.CherrypickControlAction.Continue
+	}], 'Run', (values) => {
+		runAction({ command: 'cherrypickControl', repo: repo, action: <GG.CherrypickControlAction>values[0] }, 'Updating Cherry Pick');
+	}, null, 'Decide Later');
+}
+
+function handleCherrypickError(repo: string, error: GG.ErrorInfo, errorMessage: string) {
+	if (error === null) {
+		dialog.closeActionRunning();
+	} else if (/conflict|after resolving|could not apply/i.test(error)) {
+		showCherrypickControlDialog(repo, 'The cherry pick has stopped because of a conflict. Resolve the conflicts in your editor and stage the changes, then choose how to proceed. You can reopen this dialog by choosing "Interactive Cherry Pick..." on any commit.<br><br><span class="messageContent errorContent">' + escapeHtml(error).split('\n').join('<br>') + '</span>');
+	} else {
+		dialog.showError(errorMessage, error, null, null);
+	}
 }
 
 function getBranchLabels(heads: ReadonlyArray<string>, remotes: ReadonlyArray<GG.GitCommitRemote>) {

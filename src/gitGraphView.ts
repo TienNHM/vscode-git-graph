@@ -228,6 +228,31 @@ export class GitGraphView extends Disposable {
 				}
 				this.sendMessage({ command: 'cherrypickCommit', errors: errorInfos });
 				break;
+			case 'cherrypickCandidates':
+				const candidates = await this.dataSource.getCherrypickCandidates(msg.repo, msg.commitHash);
+				this.sendMessage({
+					command: 'cherrypickCandidates',
+					repo: msg.repo,
+					inProgress: candidates.inProgress,
+					commits: candidates.commits,
+					error: candidates.error
+				});
+				break;
+			case 'cherrypickCommits':
+				errorInfos = [await this.dataSource.cherrypickCommits(msg.repo, msg.commitHashes, msg.recordOrigin, msg.noCommit)];
+				if (errorInfos[0] === null && msg.noCommit) {
+					errorInfos.push(await viewScm());
+				}
+				this.sendMessage({ command: 'cherrypickCommits', repo: msg.repo, errors: errorInfos });
+				break;
+			case 'cherrypickControl':
+				this.sendMessage({
+					command: 'cherrypickControl',
+					repo: msg.repo,
+					action: msg.action,
+					error: await this.dataSource.cherrypickControl(msg.repo, msg.action)
+				});
+				break;
 			case 'cleanUntrackedFiles':
 				this.sendMessage({
 					command: 'cleanUntrackedFiles',

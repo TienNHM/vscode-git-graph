@@ -306,3 +306,45 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	fill:var(--vscode-menu-selectionForeground, var(--vscode-menu-foreground));
 	opacity:0.85;
 }
+
+.dialogContent .dialogOrderedList{
+	max-height:240px;
+	overflow-y:auto;
+	margin-top:2px;
+	border:1px solid rgba(128,128,128,0.5);
+	border-radius:3px;
+}
+.dialogContent .dialogOrderedListItem{
+	display:flex;
+	align-items:center;
+	padding:1px 4px;
+	line-height:24px;
+}
+.dialogContent .dialogOrderedListItem:hover{
+	background-color:var(--vscode-menu-selectionBackground, rgba(128,128,128,0.15));
+}
+.dialogContent .dialogOrderedListItem .dialogFormCheckbox{
+	flex:1 1 auto;
+	min-width:0;
+	overflow:hidden;
+}
+.dialogContent .dialogOrderedListItem .dialogFormCheckbox > label{
+	display:block;
+	overflow:hidden;
+	text-overflow:ellipsis;
+	white-space:nowrap;
+}
+.dialogContent .dialogOrderedListItem .customCheckbox{
+	margin-right:6px;
+}
+.dialogContent .dialogOrderedListMove{
+	flex:0 0 auto;
+	width:20px;
+	text-align:center;
+	font-size:10px;
+	cursor:pointer;
+	opacity:0.7;
+}
+.dialogContent .dialogOrderedListMove:hover{
+	opacity:1;
+}

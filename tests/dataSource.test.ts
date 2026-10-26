@@ -6128,6 +6128,117 @@ describe('DataSource', () => {
 		});
 	});
 
+	describe('getCherrypickCandidates', () => {
+		it('Should return the commits (oldest to newest) that can be cherry picked', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce('1111111111111111111111111111111111111111\0First commit\n2222222222222222222222222222222222222222\0Second\0commit\n');
+
+			// Run
+			const result = await dataSource.getCherrypickCandidates('/path/to/repo', 'abcdef');
+
+			// Assert
+			expect(result).toStrictEqual({
+				inProgress: false,
+				commits: [
+					{ hash: '1111111111111111111111111111111111111111', message: 'First commit' },
+					{ hash: '2222222222222222222222222222222222222222', message: 'Second\0commit' }
+				],
+				error: null
+			});
+			expect(spyOnSpawn).toHaveBeenLastCalledWith('/path/to/git', ['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=100', '--format=%H%x00%s', 'HEAD..abcdef', '--'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should not list commits when a cherry pick is already in progress', async () => {
+			// Setup
+			mockGitSuccessOnce('1111111111111111111111111111111111111111\n');
+
+			// Run
+			const result = await dataSource.getCherrypickCandidates('/path/to/repo', 'abcdef');
+
+			// Assert
+			expect(result).toStrictEqual({ inProgress: true, commits: [], error: null });
+			expect(spyOnSpawn).toBeCalledTimes(1);
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.getCherrypickCandidates('/path/to/repo', 'abcdef');
+
+			// Assert
+			expect(result).toStrictEqual({ inProgress: false, commits: [], error: 'error message' });
+		});
+	});
+
+	describe('cherrypickCommits', () => {
+		it('Should cherrypick multiple commits in the order provided', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.cherrypickCommits('/path/to/repo', ['aaaa', 'bbbb'], false, false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['cherry-pick', 'aaaa', 'bbbb'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should apply the record origin, no commit and signing options', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
+
+			// Run
+			const result = await dataSource.cherrypickCommits('/path/to/repo', ['aaaa', 'bbbb'], true, true);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['cherry-pick', '--no-commit', '-x', '-S', 'aaaa', 'bbbb'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.cherrypickCommits('/path/to/repo', ['aaaa'], false, false);
+
+			// Assert
+			expect(result).toBe('error message');
+		});
+	});
+
+	describe('cherrypickControl', () => {
+		it.each(['continue', 'skip', 'abort'] as const)('Should run git cherry-pick --%s', async (action) => {
+			// Setup
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.cherrypickControl('/path/to/repo', <any>action);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['-c', 'core.editor=true', 'cherry-pick', '--' + action], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.cherrypickControl('/path/to/repo', <any>'continue');
+
+			// Assert
+			expect(result).toBe('error message');
+		});
+	});
+
 	describe('dropCommit', () => {
 		it('Should drop a commit', async () => {
 			// Setup
