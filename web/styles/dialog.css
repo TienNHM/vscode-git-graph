@@ -349,6 +349,7 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	white-space:nowrap;
 }
 .dialogContent .dialogOrderedListItem .customCheckbox{
+	margin-left:6px;
 	margin-right:8px;
 }
 .dialogContent .dialogOrderedListMove{
@@ -356,7 +357,7 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	width:26px;
 	height:22px;
 	line-height:22px;
-	margin-left:2px;
+	margin-right:2px;
 	text-align:center;
 	font-size:11px;
 	border-radius:3px;

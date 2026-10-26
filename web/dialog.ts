@@ -217,7 +217,7 @@ class Dialog {
 			let inputHtml;
 			if (input.type === DialogInputType.OrderedList) {
 				inputHtml = '<td class="inputCol" colspan="' + (infoColRequired ? 3 : 2) + '"><div id="dialogOrderedList' + id + '" class="dialogOrderedList">' +
-					input.items.map((item) => '<div class="dialogOrderedListItem" data-value="' + escapeHtml(item.value) + '"><span class="dialogFormCheckbox"><label title="' + escapeHtml(item.name) + '"><input type="checkbox"' + (item.checked ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span><span class="dialogOrderedListName">' + escapeHtml(item.name) + '</span></label></span><span class="dialogOrderedListMove" data-move="-1" title="Move up">&#9650;</span><span class="dialogOrderedListMove" data-move="1" title="Move down">&#9660;</span></div>').join('') +
+					input.items.map((item) => '<div class="dialogOrderedListItem" data-value="' + escapeHtml(item.value) + '"><span class="dialogOrderedListMove" data-move="-1" title="Move up">&#9650;</span><span class="dialogOrderedListMove" data-move="1" title="Move down">&#9660;</span><span class="dialogFormCheckbox"><label title="' + escapeHtml(item.name) + '"><input type="checkbox"' + (item.checked ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span><span class="dialogOrderedListName">' + escapeHtml(item.name) + '</span></label></span></div>').join('') +
 					'</div></td>';
 			} else if (input.type === DialogInputType.Radio) {
 				inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormRadio">' +
