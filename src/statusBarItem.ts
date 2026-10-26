@@ -25,6 +25,7 @@ export class StatusBarItem extends Disposable {
 
 		const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
 		statusBarItem.text = 'GitPilot';
+		(<{ name?: string }><unknown>statusBarItem).name = 'GitPilot'; // Shown in the Status Bar context menu (VS Code 1.57+), ignored by older versions
 		statusBarItem.tooltip = 'View Git Graph';
 		statusBarItem.command = 'gitpilot.view';
 		this.statusBarItem = statusBarItem;

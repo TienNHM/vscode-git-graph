@@ -284,6 +284,12 @@ class Dialog {
 			secondaryActioned(values);
 		} : null, target);
 
+		// Widen the dialog for ordered lists, so the item names and reordering arrows are fully visible
+		if (inputs.some((input) => input.type === DialogInputType.OrderedList) && this.elem !== null) {
+			(<HTMLElement>this.elem.firstElementChild).classList.add('wide');
+			this.elem.style.top = Math.max(Math.round((document.body.clientHeight - (this.elem.clientHeight + 2)) / 2), 10) + 'px';
+		}
+
 		// Create custom select inputs, and attach the reordering event listeners to ordered list inputs
 		inputs.forEach((input, index) => {
 			if (input.type === DialogInputType.Select) {

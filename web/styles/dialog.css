@@ -307,18 +307,32 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	opacity:0.85;
 }
 
+.dialogContent.wide{
+	width:min(760px, 92vw);
+	max-width:none;
+	box-sizing:border-box;
+}
+.dialogContent.wide > table.dialogForm{
+	display:table;
+	width:100%;
+}
 .dialogContent .dialogOrderedList{
-	max-height:240px;
+	max-height:min(360px, 45vh);
 	overflow-y:auto;
 	margin-top:2px;
+	text-align:left;
 	border:1px solid rgba(128,128,128,0.5);
 	border-radius:3px;
 }
 .dialogContent .dialogOrderedListItem{
 	display:flex;
 	align-items:center;
-	padding:1px 4px;
-	line-height:24px;
+	padding:1px 6px;
+	line-height:26px;
+	border-bottom:1px solid rgba(128,128,128,0.15);
+}
+.dialogContent .dialogOrderedListItem:last-child{
+	border-bottom:0;
 }
 .dialogContent .dialogOrderedListItem:hover{
 	background-color:var(--vscode-menu-selectionBackground, rgba(128,128,128,0.15));
@@ -335,16 +349,21 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	white-space:nowrap;
 }
 .dialogContent .dialogOrderedListItem .customCheckbox{
-	margin-right:6px;
+	margin-right:8px;
 }
 .dialogContent .dialogOrderedListMove{
 	flex:0 0 auto;
-	width:20px;
+	width:26px;
+	height:22px;
+	line-height:22px;
+	margin-left:2px;
 	text-align:center;
-	font-size:10px;
+	font-size:11px;
+	border-radius:3px;
 	cursor:pointer;
-	opacity:0.7;
+	opacity:0.6;
 }
 .dialogContent .dialogOrderedListMove:hover{
 	opacity:1;
+	background-color:rgba(128,128,128,0.35);
 }

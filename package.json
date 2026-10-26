@@ -919,8 +919,8 @@
 				},
 				"gitpilot.maxDepthOfRepoSearch": {
 					"type": "number",
-					"default": 0,
-					"description": "Specifies the maximum depth of subfolders to search when discovering repositories in the workspace. Note: Sub-repos are not automatically detected when searching subfolders, however they can be manually added by running the command \"Git Graph: Add Git Repository\" in the Command Palette."
+					"default": 3,
+					"description": "Specifies the maximum depth of subfolders to search when discovering repositories in the workspace. Note: Sub-repos are not automatically detected when searching subfolders, however they can be manually added by running the command \"GitPilot: Add Git Repository\" in the Command Palette."
 				},
 				"gitpilot.openNewTabEditorGroup": {
 					"type": "string",

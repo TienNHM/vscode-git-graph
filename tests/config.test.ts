@@ -2102,17 +2102,17 @@ describe('Config', () => {
 			const value = config.maxDepthOfRepoSearch;
 
 			// Assert
-			expect(workspaceConfiguration.get).toBeCalledWith('maxDepthOfRepoSearch', 0);
+			expect(workspaceConfiguration.get).toBeCalledWith('maxDepthOfRepoSearch', 3);
 			expect(value).toBe(5);
 		});
 
-		it('Should return the default configuration value (0)', () => {
+		it('Should return the default configuration value (3)', () => {
 			// Run
 			const value = config.maxDepthOfRepoSearch;
 
 			// Assert
-			expect(workspaceConfiguration.get).toBeCalledWith('maxDepthOfRepoSearch', 0);
-			expect(value).toBe(0);
+			expect(workspaceConfiguration.get).toBeCalledWith('maxDepthOfRepoSearch', 3);
+			expect(value).toBe(3);
 		});
 	});
 

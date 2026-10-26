@@ -306,7 +306,7 @@ class Config {
 	 * Get the value of the `gitpilot.maxDepthOfRepoSearch` Extension Setting.
 	 */
 	get maxDepthOfRepoSearch() {
-		return this.config.get('maxDepthOfRepoSearch', 0);
+		return this.config.get('maxDepthOfRepoSearch', 3);
 	}
 
 	/**
