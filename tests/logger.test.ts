@@ -20,7 +20,7 @@ describe('Logger', () => {
 		logger.dispose();
 
 		// Assert
-		expect(vscode.window.createOutputChannel).toHaveBeenCalledWith('Git Graph');
+		expect(vscode.window.createOutputChannel).toHaveBeenCalledWith('GitPilot');
 		expect(outputChannel.dispose).toBeCalledTimes(1);
 	});
 

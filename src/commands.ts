@@ -46,16 +46,16 @@ export class CommandManager extends Disposable {
 		this.gitExecutable = gitExecutable;
 
 		// Register Extension Commands
-		this.registerCommand('git-graph.view', (arg) => this.view(arg));
-		this.registerCommand('git-graph.addGitRepository', () => this.addGitRepository());
-		this.registerCommand('git-graph.removeGitRepository', () => this.removeGitRepository());
-		this.registerCommand('git-graph.clearAvatarCache', () => this.clearAvatarCache());
-		this.registerCommand('git-graph.fetch', () => this.fetch());
-		this.registerCommand('git-graph.endAllWorkspaceCodeReviews', () => this.endAllWorkspaceCodeReviews());
-		this.registerCommand('git-graph.endSpecificWorkspaceCodeReview', () => this.endSpecificWorkspaceCodeReview());
-		this.registerCommand('git-graph.resumeWorkspaceCodeReview', () => this.resumeWorkspaceCodeReview());
-		this.registerCommand('git-graph.version', () => this.version());
-		this.registerCommand('git-graph.openFile', (arg) => this.openFile(arg));
+		this.registerCommand('gitpilot.view', (arg) => this.view(arg));
+		this.registerCommand('gitpilot.addGitRepository', () => this.addGitRepository());
+		this.registerCommand('gitpilot.removeGitRepository', () => this.removeGitRepository());
+		this.registerCommand('gitpilot.clearAvatarCache', () => this.clearAvatarCache());
+		this.registerCommand('gitpilot.fetch', () => this.fetch());
+		this.registerCommand('gitpilot.endAllWorkspaceCodeReviews', () => this.endAllWorkspaceCodeReviews());
+		this.registerCommand('gitpilot.endSpecificWorkspaceCodeReview', () => this.endSpecificWorkspaceCodeReview());
+		this.registerCommand('gitpilot.resumeWorkspaceCodeReview', () => this.resumeWorkspaceCodeReview());
+		this.registerCommand('gitpilot.version', () => this.version());
+		this.registerCommand('gitpilot.openFile', (arg) => this.openFile(arg));
 
 		this.registerDisposable(
 			onDidChangeGitExecutable((gitExecutable) => {
@@ -65,9 +65,9 @@ export class CommandManager extends Disposable {
 
 		// Register Extension Contexts
 		try {
-			this.registerContext('git-graph:codiconsSupported', doesVersionMeetRequirement(vscode.version, VsCodeVersionRequirement.Codicons));
+			this.registerContext('gitpilot:codiconsSupported', doesVersionMeetRequirement(vscode.version, VsCodeVersionRequirement.Codicons));
 		} catch (_) {
-			this.logger.logError('Unable to set Visual Studio Code Context "git-graph:codiconsSupported"');
+			this.logger.logError('Unable to set Visual Studio Code Context "gitpilot:codiconsSupported"');
 		}
 	}
 
@@ -101,7 +101,7 @@ export class CommandManager extends Disposable {
 	/* Commands */
 
 	/**
-	 * The method run when the `git-graph.view` command is invoked.
+	 * The method run when the `gitpilot.view` command is invoked.
 	 * @param arg An optional argument passed to the command (when invoked from the Visual Studio Code Git Extension).
 	 */
 	private async view(arg: any) {
@@ -124,7 +124,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.addGitRepository` command is invoked.
+	 * The method run when the `gitpilot.addGitRepository` command is invoked.
 	 */
 	private addGitRepository() {
 		if (this.gitExecutable === null) {
@@ -151,7 +151,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.removeGitRepository` command is invoked.
+	 * The method run when the `gitpilot.removeGitRepository` command is invoked.
 	 */
 	private removeGitRepository() {
 		if (this.gitExecutable === null) {
@@ -180,7 +180,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.clearAvatarCache` command is invoked.
+	 * The method run when the `gitpilot.clearAvatarCache` command is invoked.
 	 */
 	private clearAvatarCache() {
 		this.avatarManager.clearCache().then((errorInfo) => {
@@ -195,7 +195,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.fetch` command is invoked.
+	 * The method run when the `gitpilot.fetch` command is invoked.
 	 */
 	private fetch() {
 		const repos = this.repoManager.getRepos();
@@ -240,7 +240,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.endAllWorkspaceCodeReviews` command is invoked.
+	 * The method run when the `gitpilot.endAllWorkspaceCodeReviews` command is invoked.
 	 */
 	private endAllWorkspaceCodeReviews() {
 		this.extensionState.endAllWorkspaceCodeReviews();
@@ -248,7 +248,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.endSpecificWorkspaceCodeReview` command is invoked.
+	 * The method run when the `gitpilot.endSpecificWorkspaceCodeReview` command is invoked.
 	 */
 	private endSpecificWorkspaceCodeReview() {
 		const codeReviews = this.extensionState.getCodeReviews();
@@ -276,7 +276,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.resumeWorkspaceCodeReview` command is invoked.
+	 * The method run when the `gitpilot.resumeWorkspaceCodeReview` command is invoked.
 	 */
 	private resumeWorkspaceCodeReview() {
 		const codeReviews = this.extensionState.getCodeReviews();
@@ -305,7 +305,7 @@ export class CommandManager extends Disposable {
 	}
 
 	/**
-	 * The method run when the `git-graph.version` command is invoked.
+	 * The method run when the `gitpilot.version` command is invoked.
 	 */
 	private async version() {
 		try {
@@ -327,7 +327,7 @@ export class CommandManager extends Disposable {
 
 	/**
 	 * Opens a file in Visual Studio Code, based on a Git Graph URI (from the Diff View).
-	 * The method run when the `git-graph.openFile` command is invoked.
+	 * The method run when the `gitpilot.openFile` command is invoked.
 	 * @param arg The Git Graph URI.
 	 */
 	private openFile(arg?: vscode.Uri) {

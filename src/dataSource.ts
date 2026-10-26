@@ -63,9 +63,9 @@ export class DataSource extends Disposable {
 		this.registerDisposables(
 			onDidChangeConfiguration((event) => {
 				if (
-					event.affectsConfiguration('git-graph.date.type') || event.affectsConfiguration('git-graph.dateType') ||
-					event.affectsConfiguration('git-graph.repository.commits.showSignatureStatus') || event.affectsConfiguration('git-graph.showSignatureStatus') ||
-					event.affectsConfiguration('git-graph.repository.useMailmap') || event.affectsConfiguration('git-graph.useMailmap')
+					event.affectsConfiguration('gitpilot.date.type') || event.affectsConfiguration('gitpilot.dateType') ||
+					event.affectsConfiguration('gitpilot.repository.commits.showSignatureStatus') || event.affectsConfiguration('gitpilot.showSignatureStatus') ||
+					event.affectsConfiguration('gitpilot.repository.useMailmap') || event.affectsConfiguration('gitpilot.useMailmap')
 				) {
 					this.generateGitCommandFormats();
 				}
