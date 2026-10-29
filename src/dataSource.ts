@@ -12,6 +12,7 @@ import { Disposable } from './utils/disposable';
 import { Event } from './utils/event';
 
 const CHERRYPICK_CANDIDATES_LIMIT = 100;
+const CHERRYPICK_PREVIEW_LIMIT = 50;
 const DRIVE_LETTER_PATH_REGEX = /^[a-z]:\//;
 const EOL_REGEX = /\r\n|\r|\n/g;
 const INVALID_BRANCH_REGEXP = /^\(.* .*\)$/;
@@ -1089,15 +1090,83 @@ export class DataSource extends Disposable {
 		if (inProgress) {
 			return { inProgress: true, commits: [], error: null };
 		}
-		return this.spawnGit(['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=' + CHERRYPICK_CANDIDATES_LIMIT, '--format=%H%x00%s', 'HEAD..' + commitHash, '--'], repo, (stdout) => {
-			return stdout.split(EOL_REGEX).filter((line) => line !== '').map((line) => {
-				const parts = line.split('\0');
-				return { hash: parts[0], message: parts.slice(1).join('\0') };
+
+		let commits: { hash: string, message: string }[];
+		try {
+			commits = await this.spawnGit(['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=' + CHERRYPICK_CANDIDATES_LIMIT, '--format=%H%x00%s', 'HEAD..' + commitHash, '--'], repo, (stdout) => {
+				return stdout.split(EOL_REGEX).filter((line) => line !== '').map((line) => {
+					const parts = line.split('\0');
+					return { hash: parts[0], message: parts.slice(1).join('\0') };
+				});
 			});
-		}).then(
-			(commits) => ({ inProgress: false, commits: commits, error: null }),
-			(error: string) => ({ inProgress: false, commits: [], error: error })
-		);
+		} catch (error) {
+			return { inProgress: false, commits: [], error: <string>error };
+		}
+
+		const applied = await this.getCherrypickAppliedHashes(repo, commitHash);
+		const toPreview = commits.filter((commit) => !applied.has(commit.hash)).slice(0, CHERRYPICK_PREVIEW_LIMIT).map((commit) => commit.hash);
+		const conflicts = await this.getCherrypickConflicts(repo, toPreview);
+		return {
+			inProgress: false,
+			commits: commits.map((commit) => ({
+				hash: commit.hash,
+				message: commit.message,
+				alreadyApplied: applied.has(commit.hash),
+				conflict: conflicts !== null && typeof conflicts[commit.hash] === 'boolean' ? conflicts[commit.hash] : null
+			})),
+			error: null
+		};
+	}
+
+	/**
+	 * Get the commits reachable from `commitHash` (but not from `HEAD`) that have an equivalent commit (the same patch) in the checked out branch.
+	 * @param repo The path of the repository.
+	 * @param commitHash The commit that is being cherry picked from.
+	 * @returns The set of commit hashes that have already been applied.
+	 */
+	private getCherrypickAppliedHashes(repo: string, commitHash: string): Promise<Set<string>> {
+		return this.spawnGit(['cherry', 'HEAD', commitHash], repo, (stdout) => {
+			const applied = new Set<string>();
+			stdout.split(EOL_REGEX).forEach((line) => {
+				if (line.startsWith('- ')) applied.add(line.substring(2).trim());
+			});
+			return applied;
+		}).catch(() => new Set<string>());
+	}
+
+	/**
+	 * Predict which commits would conflict if they were cherry picked (in the order provided) onto the checked out commit. Each commit is
+	 * merged in memory onto the result of the previous clean commit, so the working tree and branches are never modified.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The commits to cherry pick, in the order they would be applied.
+	 * @returns A lookup from commit hash to whether it is likely to conflict, or NULL if conflicts can't be predicted (Git < 2.38.0).
+	 */
+	public async getCherrypickConflicts(repo: string, commitHashes: string[]): Promise<{ [hash: string]: boolean } | null> {
+		if (this.gitExecutable === null || !doesVersionMeetRequirement(this.gitExecutable.version, GitVersionRequirement.MergeTreeWrite)) {
+			return null;
+		}
+
+		const conflicts: { [hash: string]: boolean } = {};
+		const identity = ['-c', 'user.name=GitPilot', '-c', 'user.email=gitpilot@localhost'];
+		let current = 'HEAD';
+		for (let i = 0; i < commitHashes.length; i++) {
+			const hash = commitHashes[i];
+			const lines = await this._spawnGit([...identity, 'merge-tree', '--write-tree', '--no-messages', '--merge-base=' + hash + '^', current, hash], repo, (stdout) => {
+				return stdout.toString().split(EOL_REGEX).filter((line) => line !== '');
+			}, true).catch(() => <string[]>[]);
+			if (lines.length === 0 || !/^[0-9a-f]{40,64}$/.test(lines[0])) {
+				continue; // Unable to predict this commit (e.g. it has no parent), leave it out
+			}
+			if (lines.length > 1) {
+				conflicts[hash] = true; // A conflict is reported by the conflicted file info that follows the tree hash
+			} else {
+				conflicts[hash] = false;
+				const next = await this.spawnGit([...identity, 'commit-tree', lines[0], '-p', current, '-m', 'GitPilot cherry pick preview'], repo, (stdout) => stdout.trim()).catch(() => null);
+				if (next === null) break;
+				current = next;
+			}
+		}
+		return conflicts;
 	}
 
 	/**

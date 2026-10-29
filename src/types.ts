@@ -684,6 +684,17 @@ export interface ResponseCherrypickCandidates extends ResponseWithErrorInfo {
 export interface GitCherrypickCandidate {
 	readonly hash: string;
 	readonly message: string;
+	readonly alreadyApplied: boolean; // An equivalent commit (same patch) already exists in the checked out branch
+	readonly conflict: boolean | null; // TRUE => likely to conflict, FALSE => likely to apply cleanly, NULL => unknown
+}
+
+export interface RequestCherrypickPreview extends RepoRequest {
+	readonly command: 'cherrypickPreview';
+	readonly commitHashes: string[]; // In the order they would be applied
+}
+export interface ResponseCherrypickPreview extends BaseMessage {
+	readonly command: 'cherrypickPreview';
+	readonly conflicts: { [hash: string]: boolean } | null; // NULL => unable to predict conflicts (e.g. Git is too old)
 }
 
 export interface RequestCherrypickCommits extends RepoRequest {
@@ -1300,6 +1311,7 @@ export type RequestMessage =
 	| RequestCherrypickCandidates
 	| RequestCherrypickCommit
 	| RequestCherrypickCommits
+	| RequestCherrypickPreview
 	| RequestCherrypickControl
 	| RequestCleanUntrackedFiles
 	| RequestCommitDetails
@@ -1367,6 +1379,7 @@ export type ResponseMessage =
 	| ResponseCherrypickCandidates
 	| ResponseCherrypickCommit
 	| ResponseCherrypickCommits
+	| ResponseCherrypickPreview
 	| ResponseCherrypickControl
 	| ResponseCleanUntrackedFiles
 	| ResponseCompareCommits

@@ -3239,6 +3239,21 @@ window.addEventListener('load', () => {
 				handleCherrypickError(msg.repo, reduceErrorInfos(msg.errors).error, 'Unable to Cherry Pick Commits');
 				gitGraph.refresh(false);
 				break;
+			case 'cherrypickPreview': {
+				const badges: { [value: string]: { text: string, warn: boolean } } = {};
+				let status = 'Unable to check for conflicts (requires Git 2.38.0 or newer).';
+				cherrypickAppliedHashes.forEach((hash) => badges[hash] = { text: 'already applied', warn: false });
+				if (msg.conflicts !== null) {
+					const hashes = Object.keys(msg.conflicts);
+					const numConflicts = hashes.filter((hash) => msg.conflicts![hash]).length;
+					hashes.forEach((hash) => {
+						if (msg.conflicts![hash]) badges[hash] = { text: 'may conflict', warn: true };
+					});
+					status = numConflicts === 0 ? 'No conflicts expected.' : numConflicts + ' of ' + hashes.length + ' commit' + (hashes.length > 1 ? 's' : '') + ' may conflict (conflicting commits are skipped when predicting later ones).';
+				}
+				dialog.setOrderedListBadges(badges, status);
+				break;
+			}
 			case 'cherrypickControl':
 				handleCherrypickError(msg.repo, msg.error, 'Unable to ' + (msg.action === GG.CherrypickControlAction.Continue ? 'Continue' : msg.action === GG.CherrypickControlAction.Skip ? 'Skip' : 'Abort') + ' Cherry Pick');
 				gitGraph.refresh(false);
@@ -3937,12 +3952,26 @@ function runAction(msg: GG.RequestMessage, action: string) {
 	sendMessage(msg);
 }
 
+let cherrypickAppliedHashes: ReadonlyArray<string> = [];
+
 function showInteractiveCherrypickDialog(repo: string, commits: ReadonlyArray<GG.GitCherrypickCandidate>) {
+	cherrypickAppliedHashes = commits.filter((commit) => commit.alreadyApplied).map((commit) => commit.hash);
 	const options = commits.map((commit) => ({ name: abbrevCommit(commit.hash) + ': ' + commit.message, value: commit.hash }));
-	dialog.showForm('Tick the commits to cherry pick onto the checked out branch. They are applied from top to bottom, use the arrows to change the order.', [{
+	dialog.showForm('Tick the commits to cherry pick onto the checked out branch. They are applied from top to bottom, use the arrows to change the order. Commits that are already in the checked out branch are unticked.', [{
 		type: DialogInputType.OrderedList,
 		name: 'Commits',
-		items: options.map((option) => ({ name: option.name, value: option.value, checked: true }))
+		items: commits.map((commit, index) => ({
+			name: options[index].name,
+			value: commit.hash,
+			checked: !commit.alreadyApplied,
+			badge: commit.alreadyApplied ? 'already applied' : commit.conflict === true ? 'may conflict' : undefined,
+			badgeWarn: !commit.alreadyApplied && commit.conflict === true
+		})),
+		checkLabel: 'Check for conflicts',
+		onCheck: (hashes) => {
+			dialog.setOrderedListBadges({}, 'Checking...');
+			sendMessage({ command: 'cherrypickPreview', repo: repo, commitHashes: hashes });
+		}
 	}, {
 		type: DialogInputType.Checkbox,
 		name: 'Record Origin',

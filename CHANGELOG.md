@@ -1,5 +1,9 @@
 # Change Log
 
+## 1.32.0 - 2026-10-26
+* Interactive Cherry Pick now marks commits that are already in the checked out branch (an equivalent commit with the same patch exists) and leaves them unticked.
+* Interactive Cherry Pick can predict which commits will conflict, both when the dialog opens and on demand via "Check for conflicts" (after ticking or reordering). The prediction merges commits in memory in the order shown, so nothing in your working tree or branches is touched. Requires Git 2.38.0 or newer.
+
 ## 1.31.0 - 2026-10-26
 * Renamed the extension to GitPilot (new extension ID, command and setting prefix `gitpilot.*`) and a new icon.
 * New "Interactive Cherry Pick..." action on the Commit Context Menu: tick and reorder multiple commits to cherry pick, with a Continue / Skip / Abort dialog when a conflict stops the cherry pick.

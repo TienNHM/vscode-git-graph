@@ -238,6 +238,12 @@ export class GitGraphView extends Disposable {
 					error: candidates.error
 				});
 				break;
+			case 'cherrypickPreview':
+				this.sendMessage({
+					command: 'cherrypickPreview',
+					conflicts: await this.dataSource.getCherrypickConflicts(msg.repo, msg.commitHashes)
+				});
+				break;
 			case 'cherrypickCommits':
 				errorInfos = [await this.dataSource.cherrypickCommits(msg.repo, msg.commitHashes, msg.recordOrigin, msg.noCommit)];
 				if (errorInfos[0] === null && msg.noCommit) {

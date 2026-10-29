@@ -59,12 +59,16 @@ interface DialogOrderedListInput {
 	readonly type: DialogInputType.OrderedList;
 	readonly name: string;
 	readonly items: ReadonlyArray<DialogOrderedListItem>;
+	readonly checkLabel?: string; // If set (with onCheck), a link is displayed below the list that invokes onCheck with the checked values
+	readonly onCheck?: (values: string[]) => void;
 }
 
 interface DialogOrderedListItem {
 	readonly name: string;
 	readonly value: string;
 	readonly checked: boolean;
+	readonly badge?: string;
+	readonly badgeWarn?: boolean;
 }
 
 interface DialogCheckboxInput {
@@ -217,8 +221,8 @@ class Dialog {
 			let inputHtml;
 			if (input.type === DialogInputType.OrderedList) {
 				inputHtml = '<td class="inputCol" colspan="' + (infoColRequired ? 3 : 2) + '"><div id="dialogOrderedList' + id + '" class="dialogOrderedList">' +
-					input.items.map((item) => '<div class="dialogOrderedListItem" data-value="' + escapeHtml(item.value) + '"><span class="dialogOrderedListMove" data-move="-1" title="Move up">&#9650;</span><span class="dialogOrderedListMove" data-move="1" title="Move down">&#9660;</span><span class="dialogFormCheckbox"><label title="' + escapeHtml(item.name) + '"><input type="checkbox"' + (item.checked ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span><span class="dialogOrderedListName">' + escapeHtml(item.name) + '</span></label></span></div>').join('') +
-					'</div></td>';
+					input.items.map((item) => '<div class="dialogOrderedListItem" data-value="' + escapeHtml(item.value) + '"><span class="dialogOrderedListMove" data-move="-1" title="Move up">&#9650;</span><span class="dialogOrderedListMove" data-move="1" title="Move down">&#9660;</span><span class="dialogFormCheckbox"><label title="' + escapeHtml(item.name) + '"><input type="checkbox"' + (item.checked ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span><span class="dialogOrderedListName">' + escapeHtml(item.name) + '</span></label></span><span class="dialogOrderedListBadge' + (item.badgeWarn ? ' warn' : '') + '">' + escapeHtml(item.badge || '') + '</span></div>').join('') +
+					'</div>' + (input.onCheck ? '<div class="dialogOrderedListFooter"><span class="dialogOrderedListCheck">' + escapeHtml(input.checkLabel || 'Check') + '</span><span class="dialogOrderedListStatus"></span></div>' : '') + '</td>';
 			} else if (input.type === DialogInputType.Radio) {
 				inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormRadio">' +
 					input.options.map((option, optionId) => '<label><input type="radio" name="dialogInput' + id + '" value="' + optionId + '"' + (option.value === input.default ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customRadio"></span>' + escapeHtml(option.name) + '</label>').join('<br>') +
@@ -242,6 +246,17 @@ class Dialog {
 			'</table>';
 
 		const areFormValuesInvalid = () => this.elem === null || this.elem.classList.contains(CLASS_DIALOG_NO_INPUT) || this.elem.classList.contains(CLASS_DIALOG_INPUT_INVALID);
+		const getOrderedListValues = (index: number) => {
+			// Return the values of the checked items, in the order they are currently displayed
+			const values: string[] = [];
+			const itemElems = <HTMLCollectionOf<HTMLElement>>document.getElementById('dialogOrderedList' + index)!.children;
+			for (let i = 0; i < itemElems.length; i++) {
+				if ((<HTMLInputElement>itemElems[i].querySelector('input[type=checkbox]')).checked) {
+					values.push(itemElems[i].dataset.value!);
+				}
+			}
+			return values;
+		};
 		const getFormValues = () => inputs.map((input, index) => {
 			if (input.type === DialogInputType.Radio) {
 				// Iterate through all of the radio options to get the checked value
@@ -253,15 +268,7 @@ class Dialog {
 				}
 				return input.default; // If no option is checked, return the default value
 			} else if (input.type === DialogInputType.OrderedList) {
-				// Return the values of the checked items, in the order they are currently displayed
-				const values: string[] = [];
-				const itemElems = <HTMLCollectionOf<HTMLElement>>document.getElementById('dialogOrderedList' + index)!.children;
-				for (let i = 0; i < itemElems.length; i++) {
-					if ((<HTMLInputElement>itemElems[i].querySelector('input[type=checkbox]')).checked) {
-						values.push(itemElems[i].dataset.value!);
-					}
-				}
-				return values;
+				return getOrderedListValues(index);
 			} else if (input.type === DialogInputType.Select) {
 				return this.customSelects[index.toString()].getValue();
 			} else {
@@ -296,6 +303,11 @@ class Dialog {
 				this.customSelects[index.toString()] = new CustomSelect(input, 'dialogFormSelect' + index, index + 1, this.elem!);
 			} else if (input.type === DialogInputType.OrderedList) {
 				const listElem = document.getElementById('dialogOrderedList' + index)!;
+				const checkElem = listElem.parentElement!.querySelector('.dialogOrderedListCheck');
+				if (checkElem !== null && input.onCheck) {
+					const onCheck = input.onCheck;
+					checkElem.addEventListener('click', () => onCheck(getOrderedListValues(index)));
+				}
 				listElem.addEventListener('click', (e) => {
 					const moveElem = (<HTMLElement>e.target).closest('.dialogOrderedListMove');
 					if (moveElem === null) return;
@@ -334,6 +346,25 @@ class Dialog {
 			// If the first input is a text field, set focus to it.
 			(<HTMLInputElement>document.getElementById('dialogInput0')).focus();
 		}
+	}
+
+	/**
+	 * Update the badges (and status text) of the ordered list input in the dialog that is currently open.
+	 * @param badges A lookup from item value to the badge to display on that item (items without an entry have their badge cleared).
+	 * @param status The status text to display next to the check link.
+	 */
+	public setOrderedListBadges(badges: { [value: string]: { text: string, warn: boolean } }, status: string) {
+		if (this.elem === null) return;
+		const itemElems = this.elem.querySelectorAll<HTMLElement>('.dialogOrderedListItem');
+		for (let i = 0; i < itemElems.length; i++) {
+			const badgeElem = itemElems[i].querySelector<HTMLElement>('.dialogOrderedListBadge');
+			if (badgeElem === null) continue;
+			const badge = badges[itemElems[i].dataset.value!];
+			badgeElem.textContent = typeof badge !== 'undefined' ? badge.text : '';
+			alterClass(badgeElem, 'warn', typeof badge !== 'undefined' && badge.warn);
+		}
+		const statusElem = this.elem.querySelector('.dialogOrderedListStatus');
+		if (statusElem !== null) statusElem.textContent = status;
 	}
 
 	/**

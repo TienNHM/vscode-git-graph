@@ -368,3 +368,32 @@ body.vscode-high-contrast .customSelectOptions > .customSelectOption.focussed{
 	opacity:1;
 	background-color:rgba(128,128,128,0.35);
 }
+
+.dialogContent .dialogOrderedListBadge{
+	flex:0 0 auto;
+	margin-left:8px;
+	padding:0 6px;
+	border-radius:8px;
+	font-size:11px;
+	line-height:16px;
+	background-color:rgba(128,128,128,0.3);
+}
+.dialogContent .dialogOrderedListBadge:empty{
+	display:none;
+}
+.dialogContent .dialogOrderedListBadge.warn{
+	background-color:rgba(230,150,30,0.35);
+}
+.dialogContent .dialogOrderedListFooter{
+	margin-top:6px;
+	text-align:left;
+	line-height:18px;
+}
+.dialogContent .dialogOrderedListCheck{
+	cursor:pointer;
+	text-decoration:underline;
+}
+.dialogContent .dialogOrderedListStatus{
+	margin-left:10px;
+	opacity:0.8;
+}

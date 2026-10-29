@@ -6133,6 +6133,7 @@ describe('DataSource', () => {
 			// Setup
 			mockGitThrowingErrorOnce();
 			mockGitSuccessOnce('1111111111111111111111111111111111111111\0First commit\n2222222222222222222222222222222222222222\0Second\0commit\n');
+			mockGitSuccessOnce('- 1111111111111111111111111111111111111111\n+ 2222222222222222222222222222222222222222\n');
 
 			// Run
 			const result = await dataSource.getCherrypickCandidates('/path/to/repo', 'abcdef');
@@ -6141,12 +6142,13 @@ describe('DataSource', () => {
 			expect(result).toStrictEqual({
 				inProgress: false,
 				commits: [
-					{ hash: '1111111111111111111111111111111111111111', message: 'First commit' },
-					{ hash: '2222222222222222222222222222222222222222', message: 'Second\0commit' }
+					{ hash: '1111111111111111111111111111111111111111', message: 'First commit', alreadyApplied: true, conflict: null },
+					{ hash: '2222222222222222222222222222222222222222', message: 'Second\0commit', alreadyApplied: false, conflict: null }
 				],
 				error: null
 			});
-			expect(spyOnSpawn).toHaveBeenLastCalledWith('/path/to/git', ['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=100', '--format=%H%x00%s', 'HEAD..abcdef', '--'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['-c', 'log.showSignature=false', 'log', '--no-merges', '--reverse', '--max-count=100', '--format=%H%x00%s', 'HEAD..abcdef', '--'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenLastCalledWith('/path/to/git', ['cherry', 'HEAD', 'abcdef'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should not list commits when a cherry pick is already in progress', async () => {
@@ -6171,6 +6173,55 @@ describe('DataSource', () => {
 
 			// Assert
 			expect(result).toStrictEqual({ inProgress: false, commits: [], error: 'error message' });
+		});
+	});
+
+	describe('getCherrypickConflicts', () => {
+		const oid = '3333333333333333333333333333333333333333';
+		const ident = ['-c', 'user.name=GitPilot', '-c', 'user.email=gitpilot@localhost'];
+		const newGitDataSource = () => new DataSource({ path: '/path/to/git', version: '2.38.0' }, onDidChangeConfiguration.subscribe, onDidChangeGitExecutable.subscribe, logger);
+
+		it('Should return NULL when the Git version is too old to predict conflicts', async () => {
+			// Run
+			const result = await dataSource.getCherrypickConflicts('/path/to/repo', ['aaaa']);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).not.toBeCalled();
+		});
+
+		it('Should predict conflicts by merging each commit onto the result of the previous clean commit', async () => {
+			// Setup
+			const gitDataSource = newGitDataSource();
+			mockGitSuccessOnce(oid + '\n'); // aaaa merges cleanly
+			mockGitSuccessOnce('4444444444444444444444444444444444444444\n'); // commit-tree
+			mockGitSuccessOnce(oid + '\n100644 abc 1\tfile\n100644 abc 2\tfile\n100644 abc 3\tfile\n'); // bbbb conflicts
+			mockGitSuccessOnce(oid + '\n'); // cccc merges cleanly
+			mockGitSuccessOnce('5555555555555555555555555555555555555555\n'); // commit-tree
+
+			// Run
+			const result = await gitDataSource.getCherrypickConflicts('/path/to/repo', ['aaaa', 'bbbb', 'cccc']);
+			gitDataSource.dispose();
+
+			// Assert
+			expect(result).toStrictEqual({ aaaa: false, bbbb: true, cccc: false });
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', [...ident, 'merge-tree', '--write-tree', '--no-messages', '--merge-base=aaaa^', 'HEAD', 'aaaa'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', [...ident, 'commit-tree', oid, '-p', 'HEAD', '-m', 'GitPilot cherry pick preview'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', [...ident, 'merge-tree', '--write-tree', '--no-messages', '--merge-base=bbbb^', '4444444444444444444444444444444444444444', 'bbbb'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', [...ident, 'merge-tree', '--write-tree', '--no-messages', '--merge-base=cccc^', '4444444444444444444444444444444444444444', 'cccc'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should leave out commits that Git is unable to merge', async () => {
+			// Setup
+			const gitDataSource = newGitDataSource();
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await gitDataSource.getCherrypickConflicts('/path/to/repo', ['aaaa']);
+			gitDataSource.dispose();
+
+			// Assert
+			expect(result).toStrictEqual({});
 		});
 	});
 
